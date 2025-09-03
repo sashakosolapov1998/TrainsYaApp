@@ -18,7 +18,7 @@ struct MainAppView: View {
         TabView {
             HomeView()
                 .tabItem {
-                    Image("Schedule tab")
+                    Image("scheduleTab")
                         .renderingMode(.template)
                         .resizable()
                         .frame(width: 30, height: 30)
@@ -26,7 +26,7 @@ struct MainAppView: View {
             
             SettingsView()
                 .tabItem {
-                    Image("Tab Gear")
+                    Image("tabGear")
                         .renderingMode(.template)
                         .resizable()
                         .frame(width: 30, height: 30)
