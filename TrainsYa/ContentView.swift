@@ -9,15 +9,24 @@ import SwiftUI
 import OpenAPIURLSession
 
 struct ContentView: View {
+    @State private var isActive = false
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+            
+            Image(.splashScreen)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .ignoresSafeArea()
         }
-        .padding()
+        //.padding()
         .onAppear{
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                isActive = true
+            }
+            /*
             testFetchStations()
             testFetchCopyright()
             testFetchSchedualBetweenStations()
@@ -26,6 +35,11 @@ struct ContentView: View {
             testFetchNearestCity()
             testFetchCarrierInfo()
             testFetchAllStations()
+             */
+        }
+        
+        .fullScreenCover(isPresented: $isActive){
+            MainAppView()
         }
     }
 }
@@ -33,6 +47,7 @@ struct ContentView: View {
     ContentView()
 }
 // Функция для тестового вызова API
+/*
 func testFetchStations() {
     Task {
         do {
@@ -233,8 +248,7 @@ func testFetchAllStations() {
         }
     }
 }
-
-
+ */
 
 
 
