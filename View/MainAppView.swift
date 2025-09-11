@@ -20,19 +20,17 @@ struct MainAppView: View {
                 .tabItem {
                     Image("scheduleTab")
                         .renderingMode(.template)
-                        .resizable()
-                        .frame(width: 30, height: 30)
+                        .accessibilityLabel("Расписание")
                 }
             
             SettingsView()
                 .tabItem {
                     Image("tabGear")
                         .renderingMode(.template)
-                        .resizable()
-                        .frame(width: 30, height: 30)
+                        .accessibilityLabel("Настройки")
                 }
         }
-        .accentColor(.trainsBlack)
+        .tint(.trainsBlack)
     }
     
     private static func setupTabBarAppearance() {

@@ -28,10 +28,11 @@ struct CarrierListView: View {
         Carrier(logo: "fgk",  date: "15 января", transferNote: nil,                           departure: "01:15", duration: "9 часов",  arrival: "09:00", departureTimeCategory: .night),
         Carrier(logo: "ural", date: "16 января", transferNote: nil,                           departure: "12:30", duration: "9 часов",  arrival: "21:00", departureTimeCategory: .day),
         Carrier(logo: "rzd",  date: "17 января", transferNote: "С пересадкой в Костроме",     departure: "22:30", duration: "20 часов", arrival: "08:15", departureTimeCategory: .evening),
-        Carrier(logo: "uralLogistics", date: "16 января", transferNote: nil,                           departure: "12:30", duration: "9 часов",  arrival: "21:00", departureTimeCategory: .day)
+        Carrier(logo: "ural", date: "16 января", transferNote: nil,                           departure: "12:30", duration: "9 часов",  arrival: "21:00", departureTimeCategory: .day)
     ]
 
     @State private var filteredCarriers: [Carrier] = []
+    @State private var selectedCarrier: CarrierDetails? = nil
 
     @State private var currentSelectedTimes: Set<DepartureTime> = []
     @State private var currentShowTransfers: Bool?
@@ -79,7 +80,8 @@ struct CarrierListView: View {
                                 transferNote: c.transferNote,
                                 departure: c.departure,
                                 duration: c.duration,
-                                arrival: c.arrival
+                                arrival: c.arrival,
+                                onCarrierTap: { selectedCarrier = details(for: c.logo) }
                             )
                         }
                     }
@@ -122,12 +124,47 @@ struct CarrierListView: View {
         }
         .background(Color.trainsWhite)
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(item: $selectedCarrier) { carrier in CarrierDetailView(carrier: carrier) }
         .onAppear {
             filteredCarriers = allCarriers
 
             if hasActiveFilters {
                 applyFilters(times: currentSelectedTimes, transfers: currentShowTransfers)
             }
+        }
+    }
+
+    // MARK: - Построение модели деталей перевозчика для перехода
+    private func details(for logo: String) -> CarrierDetails {
+        switch logo {
+        case "rzd":
+            return CarrierDetails(
+                name: "РЖД",
+                logoImageName: "rzd",
+                email: "support@rzd.ru",
+                phone: "+7 800 775-00-00"
+            )
+        case "fgk":
+            return CarrierDetails(
+                name: "ФГК",
+                logoImageName: "fgk",
+                email: "info@fgk.ru",
+                phone: "+7 495 000-00-00"
+            )
+        case "ural", "uralLogistics":
+            return CarrierDetails(
+                name: "Урал логистика",
+                logoImageName: "ural",
+                email: "support@ural-logistics.ru",
+                phone: "+7 343 000-00-00"
+            )
+        default:
+            return CarrierDetails(
+                name: "Перевозчик",
+                logoImageName: logo,
+                email: nil,
+                phone: nil
+            )
         }
     }
 
@@ -152,6 +189,7 @@ struct CarrierCardView: View {
     let departure: String
     let duration: String
     let arrival: String
+    let onCarrierTap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -160,11 +198,13 @@ struct CarrierCardView: View {
                     .resizable()
                     .frame(width: 40, height: 40)
                     .padding(.bottom, 16)
+                    .onTapGesture { onCarrierTap() }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(logoName(for: logo))
                         .font(.system(size: 17))
                         .foregroundColor(.black)
+                        .onTapGesture { onCarrierTap() }
                     if let note = transferNote {
                         Text(note)
                             .font(.system(size: 12))
