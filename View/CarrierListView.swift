@@ -6,41 +6,22 @@
 //
 
 import SwiftUI
-// MARK: - Models
-struct Carrier: Identifiable {
-    let id = UUID()
-    let logo: String
-    let date: String
-    let transferNote: String?
-    let departure: String
-    let duration: String
-    let arrival: String
-    let departureTimeCategory: DepartureTime
-}
-
 // MARK: - Views
 struct CarrierListView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var showFilters = false
-
-    @State private var allCarriers: [Carrier] = [
-        Carrier(logo: "rzd",  date: "14 января", transferNote: "С пересадкой в Костроме", departure: "22:30", duration: "20 часов", arrival: "08:15", departureTimeCategory: .evening),
-        Carrier(logo: "fgk",  date: "15 января", transferNote: nil,                           departure: "01:15", duration: "9 часов",  arrival: "09:00", departureTimeCategory: .night),
-        Carrier(logo: "ural", date: "16 января", transferNote: nil,                           departure: "12:30", duration: "9 часов",  arrival: "21:00", departureTimeCategory: .day),
-        Carrier(logo: "rzd",  date: "17 января", transferNote: "С пересадкой в Костроме",     departure: "22:30", duration: "20 часов", arrival: "08:15", departureTimeCategory: .evening),
-        Carrier(logo: "ural", date: "16 января", transferNote: nil,                           departure: "12:30", duration: "9 часов",  arrival: "21:00", departureTimeCategory: .day)
-    ]
-
-    @State private var filteredCarriers: [Carrier] = []
-    @State private var selectedCarrier: CarrierDetails? = nil
-
-    @State private var currentSelectedTimes: Set<DepartureTime> = []
-    @State private var currentShowTransfers: Bool?
 
     let fromText: String
     let toText: String
 
-    private var hasActiveFilters: Bool { !currentSelectedTimes.isEmpty || currentShowTransfers != nil }
+    @StateObject private var vm: CarrierListViewModel
+
+    init(fromText: String, toText: String) {
+        self.fromText = fromText
+        self.toText = toText
+        _vm = StateObject(wrappedValue: CarrierListViewModel(fromText: fromText, toText: toText))
+    }
+
+    private var hasActiveFilters: Bool { !vm.currentSelectedTimes.isEmpty || vm.currentShowTransfers != nil }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,9 +37,9 @@ struct CarrierListView: View {
                 }
                 .padding(.bottom, 16)
 
-                (Text(fromText)
+                (Text(vm.fromText)
                     + Text(" → ")
-                    + Text(toText))
+                    + Text(vm.toText))
                 .foregroundColor(.trainsBlack)
                 .font(.system(size: 24, weight: .bold))
             }
@@ -66,14 +47,14 @@ struct CarrierListView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
-                    if filteredCarriers.isEmpty {
+                    if vm.filteredCarriers.isEmpty {
                         Text("Вариантов нет")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.trainsBlack)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 230)
                     } else {
-                        ForEach(filteredCarriers) { c in
+                        ForEach(vm.filteredCarriers) { c in
                             CarrierCardView(
                                 logo: c.logo,
                                 date: c.date,
@@ -81,7 +62,7 @@ struct CarrierListView: View {
                                 departure: c.departure,
                                 duration: c.duration,
                                 arrival: c.arrival,
-                                onCarrierTap: { selectedCarrier = details(for: c.logo) }
+                                onCarrierTap: { vm.didSelectCarrier(withLogo: c.logo) }
                             )
                         }
                     }
@@ -91,7 +72,7 @@ struct CarrierListView: View {
             }
 
             Button(action: {
-                showFilters = true
+                vm.openFilters()
             }) {
                 HStack(spacing: 6) {
                     Text("Уточнить время")
@@ -111,73 +92,21 @@ struct CarrierListView: View {
                 .padding(.horizontal)
             }
             .padding(.bottom, 20)
-            .fullScreenCover(isPresented: $showFilters) {
+            .fullScreenCover(isPresented: $vm.showFilters) {
                 FiltersView(
-                    initialSelectedTimes: currentSelectedTimes,
-                    initialShowTransfers: currentShowTransfers
+                    initialSelectedTimes: vm.currentSelectedTimes,
+                    initialShowTransfers: vm.currentShowTransfers
                 ) { selectedTimes, showTransfers in
-                    currentSelectedTimes = selectedTimes
-                    currentShowTransfers = showTransfers
-                    applyFilters(times: selectedTimes, transfers: showTransfers)
+                    vm.applyFilters(times: selectedTimes, transfers: showTransfers)
                 }
             }
         }
         .background(Color.trainsWhite)
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(item: $selectedCarrier) { carrier in CarrierDetailView(carrier: carrier) }
-        .onAppear {
-            filteredCarriers = allCarriers
-
-            if hasActiveFilters {
-                applyFilters(times: currentSelectedTimes, transfers: currentShowTransfers)
-            }
+        .navigationDestination(item: $vm.selectedCarrier) { carrier in
+            CarrierDetailView(carrier: carrier)
         }
-    }
-
-    // MARK: - Построение модели деталей перевозчика для перехода
-    private func details(for logo: String) -> CarrierDetails {
-        switch logo {
-        case "rzd":
-            return CarrierDetails(
-                name: "РЖД",
-                logoImageName: "rzd",
-                email: "support@rzd.ru",
-                phone: "+7 800 775-00-00"
-            )
-        case "fgk":
-            return CarrierDetails(
-                name: "ФГК",
-                logoImageName: "fgk",
-                email: "info@fgk.ru",
-                phone: "+7 495 000-00-00"
-            )
-        case "ural", "uralLogistics":
-            return CarrierDetails(
-                name: "Урал логистика",
-                logoImageName: "ural",
-                email: "support@ural-logistics.ru",
-                phone: "+7 343 000-00-00"
-            )
-        default:
-            return CarrierDetails(
-                name: "Перевозчик",
-                logoImageName: logo,
-                email: nil,
-                phone: nil
-            )
-        }
-    }
-
-    // MARK: - Фильтрация
-    private func applyFilters(times: Set<DepartureTime>, transfers: Bool?) {
-        filteredCarriers = allCarriers.filter { carrier in
-            let timeOK = times.isEmpty || times.contains(carrier.departureTimeCategory)
-            let transfersOK: Bool = {
-                guard let t = transfers else { return true }
-                return t == (carrier.transferNote != nil)
-            }()
-            return timeOK && transfersOK
-        }
+        .task { vm.onAppear() }
     }
 }
 

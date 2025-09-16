@@ -60,6 +60,11 @@
 			path = View;
 			sourceTree = "<group>";
 		};
+		4DB780C12E756F58007FD2E3 /* ViewModels */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +83,7 @@
 		4D3DC7D82E573BCB00ACD7E3 = {
 			isa = PBXGroup;
 			children = (
+				4DB780C12E756F58007FD2E3 /* ViewModels */,
 				4DA6759F2E68780B00952BBF /* View */,
 				4DA675302E574F9500952BBF /* Services */,
 				4DA675242E574F3B00952BBF /* Resources */,
@@ -115,6 +121,7 @@
 				4DA675242E574F3B00952BBF /* Resources */,
 				4DA675302E574F9500952BBF /* Services */,
 				4DA6759F2E68780B00952BBF /* View */,
+				4DB780C12E756F58007FD2E3 /* ViewModels */,
 			);
 			name = TrainsYa;
 			packageProductDependencies = (

@@ -9,52 +9,29 @@ import SwiftUI
 
 // MARK: - Views
 struct HomeView: View {
-    @State private var fromText: String = ""
-    @State private var toText: String = ""
+    @StateObject private var vm = HomeViewModel()
+    @State private var path: [HomeRoute] = []
 
-    @State private var selectedFromCity: String = ""
-    @State private var selectedToCity: String = ""
-
-    @State private var isSelectingFrom = false
-    @State private var isSelectingTo = false
-
-    @State private var isSelectingFromStation = false
-    @State private var isSelectingToStation = false
-
-    @State private var isShowingCarriers = false
-    
-    private let storyImages = ["stories1", "stories2", "stories3", "stories4"]
-    
-    @State private var stories: [Story] = [
-        .init(imageName: "stories1", isViewed: false),
-        .init(imageName: "stories2", isViewed: false),
-        .init(imageName: "stories3", isViewed: false),
-        .init(imageName: "stories4", isViewed: false),
-    ]
-    @State private var showStories = false
-    @State private var currentStoryIndex = 0
-
-    private var canSearch: Bool { !fromText.isEmpty && !toText.isEmpty }
+    private var canSearch: Bool { !vm.fromText.isEmpty && !vm.toText.isEmpty }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack {
                 ScrollView {
                     VStack(spacing: 44) {
-                        StoriesStrip(stories: $stories) { index in
-                            currentStoryIndex = index
-                            showStories = true
+                        StoriesStrip(stories: $vm.stories) { index in
+                            vm.tapStory(at: index)
                         }
                         .padding(.top)
 
                         HStack {
                             VStack(spacing: 0) {
                                 Button {
-                                    isSelectingFrom = true
+                                    vm.startSelectingFrom()
                                 } label: {
                                     HStack {
-                                        Text(fromText.isEmpty ? "Откуда" : fromText)
-                                            .foregroundColor(fromText.isEmpty ? .gray : .black)
+                                        Text(vm.fromText.isEmpty ? "Откуда" : vm.fromText)
+                                            .foregroundColor(vm.fromText.isEmpty ? .gray : .black)
                                         Spacer()
                                     }
                                     .padding()
@@ -63,11 +40,11 @@ struct HomeView: View {
                                 }
 
                                 Button {
-                                    isSelectingTo = true
+                                    vm.startSelectingTo()
                                 } label: {
                                     HStack {
-                                        Text(toText.isEmpty ? "Куда" : toText)
-                                            .foregroundColor(toText.isEmpty ? .gray : .black)
+                                        Text(vm.toText.isEmpty ? "Куда" : vm.toText)
+                                            .foregroundColor(vm.toText.isEmpty ? .gray : .black)
                                         Spacer()
                                     }
                                     .padding()
@@ -80,7 +57,7 @@ struct HomeView: View {
                             .padding()
 
                             Button {
-                                swapEndpoints()
+                                vm.swapDirections()
                             } label: {
                                 Image("direction")
                                     .padding(12)
@@ -96,7 +73,7 @@ struct HomeView: View {
 
                         if canSearch {
                             Button("Найти") {
-                                isShowingCarriers = true
+                                vm.searchCarriers()
                             }
                             .frame(width: 150, height: 60)
                             .foregroundColor(.white)
@@ -112,54 +89,52 @@ struct HomeView: View {
                 Spacer()
             }
             .frame(maxHeight: .infinity, alignment: .top)
+            .task { await vm.loadStories() }
 
             // MARK: - Navigation
 
-            .navigationDestination(isPresented: $isSelectingFrom) {
-                CitySelectionView { city in
-                    selectedFromCity = city
-                    isSelectingFrom = false
-                    isSelectingFromStation = true
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-
-            .navigationDestination(isPresented: $isSelectingFromStation) {
-                StationSelectionView(city: selectedFromCity) { station in
-                    fromText = "\(selectedFromCity) (\(station))"
-                    isSelectingFromStation = false
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-            .navigationDestination(isPresented: $isSelectingTo) {
-                CitySelectionView { city in
-                    selectedToCity = city
-                    isSelectingTo = false
-                    isSelectingToStation = true
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-            .navigationDestination(isPresented: $isSelectingToStation) {
-                StationSelectionView(city: selectedToCity) { station in
-                    toText = "\(selectedToCity) (\(station))"
-                    isSelectingToStation = false
-                }
-                .toolbar(.hidden, for: .tabBar)
-            }
-            .navigationDestination(isPresented: $isShowingCarriers) {
-                CarrierListView(fromText: fromText, toText: toText)
+            .navigationDestination(for: HomeRoute.self) { route in
+                switch route {
+                case .selectFromCity:
+                    CitySelectionView { city in
+                        vm.selectFromCity(city)
+                    }
                     .toolbar(.hidden, for: .tabBar)
+
+                case .selectFromStation:
+                    StationSelectionView(city: vm.selectedFromCity) { station in
+                        vm.selectFromStation(station)
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+
+                case .selectToCity:
+                    CitySelectionView { city in
+                        vm.selectToCity(city)
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+
+                case .selectToStation:
+                    StationSelectionView(city: vm.selectedToCity) { station in
+                        vm.selectToStation(station)
+                    }
+                    .toolbar(.hidden, for: .tabBar)
+
+                case .carriers:
+                    CarrierListView(fromText: vm.fromText, toText: vm.toText)
+                        .toolbar(.hidden, for: .tabBar)
+                }
             }
-            
-            .fullScreenCover(isPresented: $showStories) {
-                StoriesViewer(stories: $stories, currentIndex: $currentStoryIndex)
+            .onChange(of: vm.route) { route in
+                if let route {
+                    path.append(route)
+                    vm.closeRoute()
+                }
+            }
+            .fullScreenCover(isPresented: $vm.showStories) {
+                StoriesViewer(stories: $vm.stories, currentIndex: $vm.currentStoryIndex)
                     .ignoresSafeArea()
             }
         }
-    }
-
-    private func swapEndpoints() {
-        swap(&fromText, &toText)
     }
 }
 
