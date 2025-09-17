@@ -97,45 +97,38 @@ struct HomeView: View {
                 switch route {
                 case .selectFromCity:
                     CitySelectionView { city in
-                        print("🟨 [HomeView] open CitySelectionView (FROM), selected city =", city)
                         vm.selectFromCity(city)
                     }
                     .toolbar(.hidden, for: .tabBar)
 
                 case let .selectFromStation(city):
                     StationSelectionView(city: city) { station in
-                        print("🟦 [HomeView] open StationSelectionView (FROM), city =", city, "selected station =", station)
                         vm.selectFromStation(station)
                     }
                     .toolbar(.hidden, for: .tabBar)
 
                 case .selectToCity:
                     CitySelectionView { city in
-                        print("🟩 [HomeView] open CitySelectionView (TO), selected city =", city)
                         vm.selectToCity(city)
                     }
                     .toolbar(.hidden, for: .tabBar)
 
                 case let .selectToStation(city):
                     StationSelectionView(city: city) { station in
-                        print("🟪 [HomeView] open StationSelectionView (TO), city =", city, "selected station =", station)
                         vm.selectToStation(station)
                     }
                     .toolbar(.hidden, for: .tabBar)
 
                 case .carriers:
                     CarrierListView(fromText: vm.fromText, toText: vm.toText)
-                        .onAppear { print("🟠 [HomeView] open CarrierListView:", vm.fromText, "→", vm.toText) }
                         .toolbar(.hidden, for: .tabBar)
                 }
             }
             .onChange(of: vm.route) { route in
                 if let route {
-                    print("➡️ [HomeView] push route =", route)
                     path.append(route)
                     vm.closeRoute()
                 } else {
-                    print("ℹ️ [HomeView] route cleared")
                 }
         
             }
