@@ -27,6 +27,7 @@ final class StationSelectionViewModel: ObservableObject {
     deinit { searchTask?.cancel() }
 
     func onAppear() {
+        print("⚙️ [StationSelectionViewModel] onAppear, city = \(city)")
         if stations.isEmpty {
             searchImmediately(query: "")
         }
@@ -52,6 +53,7 @@ final class StationSelectionViewModel: ObservableObject {
     private func searchImmediately(query: String) {
         searchTask?.cancel()
         isLoading = true
+        print("🔍 [StationSelectionViewModel] immediate search, query = \(query)")
         errorMessage = nil
         searchTask = Task { [weak self] in
         await self?.search(query: query)
@@ -59,6 +61,7 @@ final class StationSelectionViewModel: ObservableObject {
     }
 
     private func search(query: String) async {
+        print("📡 [StationSelectionViewModel] start search with query = \(query), city = \(city)")
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -67,9 +70,11 @@ final class StationSelectionViewModel: ObservableObject {
             let list = try await client.fetchStations(city: city, matching: query)
             try Task.checkCancellation()
             self.stations = list
+            print("✅ [StationSelectionViewModel] success, stations = \(list)")
         } catch is CancellationError {
             return
         } catch {
+            print("❌ [StationSelectionViewModel] error: \(error)")
             self.stations = []
             if let urlErr = error as? URLError,
                [.notConnectedToInternet, .timedOut, .networkConnectionLost,

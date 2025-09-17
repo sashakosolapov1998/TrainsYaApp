@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Модель
-struct Story: Identifiable, Hashable {
+struct Story: Identifiable, Hashable, Sendable {
     let id = UUID()
     let imageName: String
     var isViewed: Bool

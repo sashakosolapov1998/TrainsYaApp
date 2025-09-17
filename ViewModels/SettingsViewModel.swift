@@ -7,11 +7,11 @@
 import Foundation
 
 // MARK: - Storage (Model)
-protocol SettingsStore {
+@MainActor protocol SettingsStore {
    var isDarkMode: Bool { get set }
 }
 
-final class UserDefaultsSettingsStore: SettingsStore {
+@MainActor final class UserDefaultsSettingsStore: SettingsStore {
     private let key = "isDarkMode"
     private let defaults: UserDefaults
 
@@ -27,7 +27,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
 }
 
 // MARK: - Routing
-enum SettingsRoute: Hashable {
+enum SettingsRoute: Hashable, Sendable {
     case userAgreement
 }
 

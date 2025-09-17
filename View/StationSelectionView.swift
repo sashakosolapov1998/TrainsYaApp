@@ -13,7 +13,7 @@ struct StationSelectionView: View {
     
     @Environment(\.dismiss) private var dismiss
     @StateObject private var vm: StationSelectionViewModel
-
+    
     init(city: String, onSelect: @escaping (String) -> Void) {
         self.city = city
         self.onSelect = onSelect
@@ -73,13 +73,11 @@ struct StationSelectionView: View {
                         }
                     }
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(Color(.systemBackground))
                 }
             }
         }
         .listStyle(.plain)
-        .background(Color.clear)
-        .scrollContentBackground(.hidden)
         .searchable(
             text: Binding(
                 get: { vm.searchText },
@@ -88,29 +86,17 @@ struct StationSelectionView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Введите станцию"
         )
-        .task { vm.onAppear() }
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.trainsBlack)
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Text("Выбор станции")
-                    .font(.headline)
-                    .foregroundColor(.trainsBlack)
-            }
+        .task {
+            vm.onAppear()
         }
+        .navigationTitle("Выбор станции")
     }
-}
-
-// MARK: - Preview
-#Preview {
-    StationSelectionView(city: "Москва") { selectedStation in
-        print("Selected station: \(selectedStation)")
+    
+    
+    // MARK: - Preview
+    #Preview {
+        StationSelectionView(city: "Москва") { selectedStation in
+            print("Selected station: \(selectedStation)")
+        }
     }
 }

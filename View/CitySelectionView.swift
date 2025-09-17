@@ -54,6 +54,7 @@ struct CitySelectionView: View {
             } else {
                 ForEach(vm.cities) { city in
                     Button {
+                        print("🧭 [CitySelectionView] choose city =", city.name)
                         onSelect(city.name)
                         dismiss()
                     } label: {
@@ -82,7 +83,10 @@ struct CitySelectionView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Введите запрос"
         )
-        .task { vm.onAppear() }
+        .task {
+            print("👀 [CitySelectionView] appeared")
+            vm.onAppear()
+        }
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {

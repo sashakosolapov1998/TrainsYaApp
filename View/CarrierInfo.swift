@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Models
-struct CarrierDetails: Identifiable, Hashable {
+struct CarrierDetails: Identifiable, Hashable, Sendable {
     let id = UUID()
     let name: String
     let logoImageName: String

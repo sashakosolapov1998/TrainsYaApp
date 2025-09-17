@@ -8,11 +8,11 @@
 import Foundation
 import SwiftUI
 
-enum HomeRoute: Hashable {
+enum HomeRoute: Hashable, Sendable {
     case selectFromCity
-    case selectFromStation
+    case selectFromStation(city: String)
     case selectToCity
-    case selectToStation
+    case selectToStation(city: String)
     case carriers
 }
 
@@ -51,7 +51,10 @@ final class HomeViewModel: ObservableObject {
 
     func selectFromCity(_ city: String) {
         selectedFromCity = city
-        route = .selectFromStation
+        // Отложим навигацию на следующий runloop, чтобы избежать "Update NavigationRequestObserver..."
+        DispatchQueue.main.async { [weak self] in
+            self?.route = .selectFromStation(city: city)
+        }
     }
 
     func selectFromStation(_ station: String) {
@@ -61,7 +64,10 @@ final class HomeViewModel: ObservableObject {
 
     func selectToCity(_ city: String) {
         selectedToCity = city
-        route = .selectToStation
+        // Отложим навигацию на следующий runloop, чтобы избежать "Update NavigationRequestObserver..."
+        DispatchQueue.main.async { [weak self] in
+            self?.route = .selectToStation(city: city)
+        }
     }
 
     func selectToStation(_ station: String) {
