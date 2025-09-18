@@ -56,6 +56,7 @@ struct CarrierListView: View {
                     } else {
                         ForEach(vm.filteredCarriers) { c in
                             CarrierCardView(
+                                logoURL: c.logoURL,
                                 logo: c.logo,
                                 title: c.title,
                                 date: c.date,
@@ -113,6 +114,7 @@ struct CarrierListView: View {
 
 // MARK: - Ячейка рейса
 struct CarrierCardView: View {
+    let logoURL: URL?
     let logo: String
     let title: String
     let date: String
@@ -125,16 +127,29 @@ struct CarrierCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                if let ui = UIImage(named: logo) {
-                    Image(uiImage: ui)
-                        .resizable()
-                        .frame(width: 40, height: 40)
-                        .padding(.bottom, 16)
-                        .onTapGesture { onCarrierTap() }
+                if let url = logoURL {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFit()
+                        case .empty:
+                            ProgressView()
+                        case .failure:
+                            Image(systemName: "train.side.front.car")
+                                .resizable().scaledToFit()
+                                .foregroundStyle(.gray)
+                        @unknown default:
+                            Image(systemName: "train.side.front.car")
+                                .resizable().scaledToFit()
+                                .foregroundStyle(.gray)
+                        }
+                    }
+                    .frame(width: 40, height: 40)
+                    .padding(.bottom, 16)
+                    .onTapGesture { onCarrierTap() }
                 } else {
                     Image(systemName: "train.side.front.car")
-                        .resizable()
-                        .scaledToFit()
+                        .resizable().scaledToFit()
                         .frame(width: 40, height: 40)
                         .foregroundStyle(.gray)
                         .padding(.bottom, 16)

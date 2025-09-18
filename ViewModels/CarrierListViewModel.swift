@@ -12,6 +12,7 @@ import Foundation
 struct Carrier: Identifiable, Sendable {
     let id = UUID()
     let logo: String
+    let logoURL: URL?
     let title: String
     let date: String
     let transferNote: String?

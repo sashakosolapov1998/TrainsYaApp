@@ -186,8 +186,15 @@ actor NetworkClient {
                 let logo  = carrierLogoName(from: seg.thread?.carrier?.code?.stringValue)
                 let note: String? = (seg.hasTransfers ?? false) ? "С пересадкой" : nil
 
+                let logoURL: URL? = {
+                    if let s = seg.thread?.carrier?.logo, let u = URL(string: s) { return u }
+                    if let s = seg.thread?.carrier?.logoSvg, let u = URL(string: s) { return u }
+                    return nil
+                }()
+
                 return Carrier(
                     logo: logo,
+                    logoURL: logoURL,
                     title: title,
                     date: dayMonth(dep),
                     transferNote: note,
@@ -274,6 +281,8 @@ private struct SearchResponse: Decodable {
         // бывает code как строка или как число, поэтому оставим строку
         let code: StringOrInt?
         let title: String?
+        let logo: String?
+        let logoSvg: String?
     }
 }
 
