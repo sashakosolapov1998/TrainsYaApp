@@ -21,6 +21,8 @@ actor NetworkClient {
 
     // Кэш большого справочника станций, чтобы не грузить каждый раз
     private var stationsCatalogCache: StationsListResponse? = nil
+    // Быстрый индекс: нормализованное имя станции → код станции
+    private var stationIndexByTitle: [String: String] = [:]
 
     init(session: URLSession = .shared) {
         self.session = session
@@ -86,29 +88,24 @@ actor NetworkClient {
         let all = try await loadStationsCatalog()
 
         func stationCode(from composed: String) -> String? {
-            // ожидаем формат "Город (Станция)"
+            // Попробуем извлечь имя из формата "Город (Станция)"
             if let l = composed.firstIndex(of: "("), let r = composed.lastIndex(of: ")"), l < r {
-                let name = composed[composed.index(after: l)..<r].trimmingCharacters(in: .whitespacesAndNewlines)
-                for country in all.countries ?? [] {
-                    for region in country.regions ?? [] {
-                        if let s = (region.settlements ?? []).flatMap({ $0.stations ?? [] }).first(where: { $0.title == name }) {
-                            return s.codes?.yandexCode ?? s.codes?.yandex ?? s.codes?.esr
-                        }
-                    }
-                }
+                let stationName = composed[composed.index(after: l)..<r].trimmingCharacters(in: .whitespacesAndNewlines)
+                let key = normalize(String(stationName))
+                if let code = stationIndexByTitle[key] { return code }
             }
-            // fallback: полное совпадение по title
-            for country in all.countries ?? [] {
-                for region in country.regions ?? [] {
-                    if let s = (region.settlements ?? []).flatMap({ $0.stations ?? [] }).first(where: { $0.title == composed }) {
-                        return s.codes?.yandexCode ?? s.codes?.yandex ?? s.codes?.esr
-                    }
-                }
-            }
+            // Если строка пришла без скобок — возможно это уже чистое имя станции
+            let directKey = normalize(composed)
+            if let code = stationIndexByTitle[directKey] { return code }
             return nil
         }
 
-        guard let fromCode = stationCode(from: from), let toCode = stationCode(from: to) else {
+        let fromCode = stationCode(from: from)
+        let toCode   = stationCode(from: to)
+        print("🔎 [Search] input from=\(from), to=\(to)")
+        print("🔎 [Search] resolved codes from=\(fromCode ?? "nil"), to=\(toCode ?? "nil")")
+        guard let fromCode, let toCode else {
+            print("⛔️ [Search] one or both station codes not found — aborting request")
             return []
         }
 
@@ -127,63 +124,87 @@ actor NetworkClient {
             .init(name: "from", value: fromCode),
             .init(name: "to", value: toCode),
             .init(name: "date", value: today),
-            .init(name: "transfers", value: "1"),
-            .init(name: "lang", value: "ru_RU")
+            .init(name: "transfers", value: "0"),
+            .init(name: "transport_types", value: "train,suburban"),
+            .init(name: "lang", value: "ru_RU"),
+            .init(name: "format", value: "json")
         ]
+        if let url = comps.url { print("🌐 [Search] URL =", url.absoluteString) }
         let (data, response) = try await session.data(from: comps.url!)
+        if let http = response as? HTTPURLResponse {
+            print("🛣️ [Search] status =", http.statusCode)
+        }
         try ensureOK(response)
-        let rsp = try decoder.decode(SearchResponse.self, from: data)
 
-        let iso = ISO8601DateFormatter()
-        func hhmm(_ s: String?) -> String {
-            guard let s, let d = iso.date(from: s) else { return "--:--" }
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "ru_RU")
-            f.timeZone = .current
-            f.dateFormat = "HH:mm"
-            return f.string(from: d)
-        }
-        func dayMonth(_ s: String?) -> String {
-            guard let s, let d = iso.date(from: s) else { return "" }
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "ru_RU")
-            f.timeZone = .current
-            f.dateFormat = "d MMMM"
-            return f.string(from: d)
-        }
+        do {
+            let rsp = try decoder.decode(SearchResponse.self, from: data)
+            let count = rsp.segments?.count ?? 0
+            print("📦 [Search] segments count =", count)
+            if count == 0, let s = String(data: data, encoding: .utf8) {
+                print("🧪 [Search] raw body (truncated):", s.prefix(800))
+            }
 
-        return (rsp.segments ?? []).compactMap { seg in
-            let dep = seg.departure
-            let arr = seg.arrival
-            let dur = seg.duration ?? 0
-            let hours = max(0, dur / 3600)
-            let mins  = max(0, (dur % 3600) / 60)
+            let iso = ISO8601DateFormatter()
+            func hhmm(_ s: String?) -> String {
+                guard let s, let d = iso.date(from: s) else { return "--:--" }
+                let f = DateFormatter()
+                f.locale = Locale(identifier: "ru_RU")
+                f.timeZone = .current
+                f.dateFormat = "HH:mm"
+                return f.string(from: d)
+            }
+            func dayMonth(_ s: String?) -> String {
+                guard let s, let d = iso.date(from: s) else { return "" }
+                let f = DateFormatter()
+                f.locale = Locale(identifier: "ru_RU")
+                f.timeZone = .current
+                f.dateFormat = "d MMMM"
+                return f.string(from: d)
+            }
 
-            let depHour: Int = {
-                guard let s = dep, let d = iso.date(from: s) else { return 0 }
-                return Calendar.current.component(.hour, from: d)
-            }()
-            let category: DepartureTime = {
-                switch depHour {
-                case 0..<6: return .night
-                case 6..<12: return .morning
-                case 12..<18: return .day
-                default: return .evening
-                }
-            }()
+            let result = (rsp.segments ?? []).compactMap { seg in
+                let dep = seg.departure
+                let arr = seg.arrival
+                let dur = seg.duration ?? 0
+                let hours = max(0, dur / 3600)
+                let mins  = max(0, (dur % 3600) / 60)
 
-            let logo = seg.thread?.carrier?.code ?? seg.thread?.carrier?.title ?? "carrier"
-            let note: String? = (seg.hasTransfers ?? false) ? "С пересадкой" : nil
+                let depHour: Int = {
+                    guard let s = dep, let d = iso.date(from: s) else { return 0 }
+                    return Calendar.current.component(.hour, from: d)
+                }()
+                let category: DepartureTime = {
+                    switch depHour {
+                    case 0..<6: return .night
+                    case 6..<12: return .morning
+                    case 12..<18: return .day
+                    default: return .evening
+                    }
+                }()
 
-            return Carrier(
-                logo: logo,
-                date: dayMonth(dep),
-                transferNote: note,
-                departure: hhmm(dep),
-                duration: hours > 0 ? "\(hours) ч \(mins) м" : "\(mins) м",
-                arrival: hhmm(arr),
-                departureTimeCategory: category
-            )
+                let title = seg.thread?.carrier?.title ?? seg.thread?.number ?? "Перевозчик"
+                let logo  = carrierLogoName(from: seg.thread?.carrier?.code?.stringValue)
+                let note: String? = (seg.hasTransfers ?? false) ? "С пересадкой" : nil
+
+                return Carrier(
+                    logo: logo,
+                    title: title,
+                    date: dayMonth(dep),
+                    transferNote: note,
+                    departure: hhmm(dep),
+                    duration: hours > 0 ? "\(hours) ч \(mins) м" : "\(mins) м",
+                    arrival: hhmm(arr),
+                    departureTimeCategory: category
+                )
+            }
+            return result
+        } catch {
+            if let s = String(data: data, encoding: .utf8) {
+                print("💥 [Search] decode error =", error, "\n🔸 raw body:", s.prefix(1200))
+            } else {
+                print("💥 [Search] decode error =", error, " (body not UTF-8)")
+            }
+            throw error
         }
     }
 
@@ -215,6 +236,28 @@ private struct StationsListResponse: Decodable {
 }
 
 private struct SearchResponse: Decodable {
+    enum StringOrInt: Decodable {
+        case string(String)
+        case int(Int)
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let i = try? container.decode(Int.self) {
+                self = .int(i)
+            } else if let s = try? container.decode(String.self) {
+                self = .string(s)
+            } else {
+                throw DecodingError.typeMismatch(String.self, .init(codingPath: decoder.codingPath, debugDescription: "Expected String or Int for StringOrInt"))
+            }
+        }
+
+        var stringValue: String {
+            switch self {
+            case .string(let s): return s
+            case .int(let i): return String(i)
+            }
+        }
+    }
     let segments: [Segment]?
     struct Segment: Decodable {
         let departure: String?
@@ -225,10 +268,11 @@ private struct SearchResponse: Decodable {
     }
     struct ThreadInfo: Decodable {
         let carrier: CarrierInfo?
+        let number: String?
     }
     struct CarrierInfo: Decodable {
         // бывает code как строка или как число, поэтому оставим строку
-        let code: String?
+        let code: StringOrInt?
         let title: String?
     }
 }
@@ -253,6 +297,23 @@ private extension NetworkClient {
         let (data, response) = try await session.data(from: comps.url!)
         try ensureOK(response)
         let parsed = try decoder.decode(StationsListResponse.self, from: data)
+        // Построим индекс станций: по нормализованному названию найдём код
+        var idx: [String: String] = [:]
+        for country in parsed.countries ?? [] {
+            for region in country.regions ?? [] {
+                for settlement in region.settlements ?? [] {
+                    for st in settlement.stations ?? [] {
+                        if let name = st.title {
+                            let key = normalize(name)
+                            if let code = st.codes?.yandexCode ?? st.codes?.yandex ?? st.codes?.esr, !key.isEmpty, !code.isEmpty {
+                                idx[key] = code
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.stationIndexByTitle = idx
         stationsCatalogCache = parsed
         return parsed
     }
@@ -265,5 +326,18 @@ private extension NetworkClient {
             .replacingOccurrences(of: "ё", with: "е")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return lowered.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    /// Возвращаем имя ассета с логотипом перевозчика по коду Яндекса.
+    /// Если ассета нет — возвращаем дефолтную картинку "carrier".
+    func carrierLogoName(from code: String?) -> String {
+        guard let code, let n = Int(code) else { return "carrier" }
+        switch n {
+        // Примеры: заполняй, когда добавишь ассеты в каталоге.
+        // case 129: return "tverskoy"   // Тверской Экспресс
+        // case 2:   return "rzd"        // РЖД
+        default:
+            return "carrier"
+        }
     }
 }

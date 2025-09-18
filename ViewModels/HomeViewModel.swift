@@ -58,7 +58,7 @@ final class HomeViewModel: ObservableObject {
     }
 
     func selectFromStation(_ station: String) {
-        fromText = "\(selectedFromCity) (\(station))"
+        fromText = prettyStationTitle(city: selectedFromCity, stationTitle: station)
         route = nil
     }
 
@@ -71,7 +71,7 @@ final class HomeViewModel: ObservableObject {
     }
 
     func selectToStation(_ station: String) {
-        toText = "\(selectedToCity) (\(station))"
+        toText = prettyStationTitle(city: selectedToCity, stationTitle: station)
         route = nil
     }
 
@@ -98,6 +98,21 @@ final class HomeViewModel: ObservableObject {
             self.stories = items
         } catch {
             self.stories = []
+        }
+    }
+}
+
+private extension HomeViewModel {
+    func prettyStationTitle(city: String, stationTitle: String) -> String {
+        func norm(_ s: String) -> String {
+            s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .init(identifier: "ru_RU"))
+             .replacingOccurrences(of: "ё", with: "е")
+             .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if norm(stationTitle).hasPrefix(norm(city)) {
+            return stationTitle
+        } else {
+            return "\(city) (\(stationTitle))"
         }
     }
 }

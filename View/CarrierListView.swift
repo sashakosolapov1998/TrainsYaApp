@@ -57,6 +57,7 @@ struct CarrierListView: View {
                         ForEach(vm.filteredCarriers) { c in
                             CarrierCardView(
                                 logo: c.logo,
+                                title: c.title,
                                 date: c.date,
                                 transferNote: c.transferNote,
                                 departure: c.departure,
@@ -113,6 +114,7 @@ struct CarrierListView: View {
 // MARK: - Ячейка рейса
 struct CarrierCardView: View {
     let logo: String
+    let title: String
     let date: String
     let transferNote: String?
     let departure: String
@@ -123,14 +125,24 @@ struct CarrierCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Image(logo)
-                    .resizable()
-                    .frame(width: 40, height: 40)
-                    .padding(.bottom, 16)
-                    .onTapGesture { onCarrierTap() }
+                if let ui = UIImage(named: logo) {
+                    Image(uiImage: ui)
+                        .resizable()
+                        .frame(width: 40, height: 40)
+                        .padding(.bottom, 16)
+                        .onTapGesture { onCarrierTap() }
+                } else {
+                    Image(systemName: "train.side.front.car")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .foregroundStyle(.gray)
+                        .padding(.bottom, 16)
+                        .onTapGesture { onCarrierTap() }
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(logoName(for: logo))
+                    Text(title.isEmpty ? logoName(for: logo) : title)
                         .font(.system(size: 17))
                         .foregroundColor(.black)
                         .onTapGesture { onCarrierTap() }
@@ -182,9 +194,10 @@ struct CarrierCardView: View {
         switch imageName {
         case "rzd": return "РЖД"
         case "fgk": return "ФГК"
-        case "ural": return "Урал логистика"
-        case "uralLogistics": return "Урал логистика"
-        default: return "Перевозчик"
+        case "ural", "uralLogistics": return "Урал логистика"
+        default:
+            // Если пришло название из API (например, "Тверской Экспресс") — показываем его как есть
+            return imageName
         }
     }
 }
