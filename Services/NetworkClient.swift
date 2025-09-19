@@ -182,8 +182,17 @@ actor NetworkClient {
                     }
                 }()
 
+                // carrier code may come as string or int
+                let codeInt: Int? = {
+                    guard let c = seg.thread?.carrier?.code else { return nil }
+                    switch c {
+                    case .int(let i): return i
+                    case .string(let s): return Int(s)
+                    }
+                }()
+
                 let title = seg.thread?.carrier?.title ?? seg.thread?.number ?? "Перевозчик"
-                let logo  = carrierLogoName(from: seg.thread?.carrier?.code?.stringValue)
+                let logoName  = carrierLogoName(from: codeInt)
                 let note: String? = (seg.hasTransfers ?? false) ? "С пересадкой" : nil
 
                 let logoURL: URL? = {
@@ -193,8 +202,9 @@ actor NetworkClient {
                 }()
 
                 return Carrier(
-                    logo: logo,
+                    logo: logoName,
                     logoURL: logoURL,
+                    code: codeInt,
                     title: title,
                     date: dayMonth(dep),
                     transferNote: note,
@@ -215,11 +225,54 @@ actor NetworkClient {
         }
     }
 
-    // MARK: - Детали перевозчика (при желании можно вызвать /carrier)
-    func carrierDetails(for name: String) async throws -> CarrierDetails {
-        // Пока простой маппинг, реальный вызов можно добавить по коду перевозчика
-        CarrierDetails(name: name, logoImageName: "carrier", email: nil, phone: nil)
-    }
+// MARK: - Детали перевозчика
+/// Вариант для обратной совместимости: по имени пока возвращаем stub.
+/// Рекомендуется вызывать `carrierDetails(code:)`, чтобы тянуть данные из API.
+func carrierDetails(for name: String) async throws -> CarrierDetails {
+    return CarrierDetails(
+        name: name,
+        logoURL: nil,
+        email: nil,
+        phone: nil,
+        code: nil
+    )
+}
+
+/// Реальные детали перевозчика по коду из API Яндекса.
+func carrierDetails(code: String) async throws -> CarrierDetails {
+    var comps = URLComponents(url: baseURL.appendingPathComponent("carrier/"), resolvingAgainstBaseURL: false)!
+    comps.queryItems = [
+        .init(name: "apikey", value: apiKey),
+        .init(name: "code", value: code),
+        .init(name: "format", value: "json")
+    ]
+    let (data, response) = try await session.data(from: comps.url!)
+    try ensureOK(response)
+
+    let info = try decoder.decode(CarrierDetailsResponse.self, from: data)
+    let url: URL? = {
+        if let s = info.logo, let u = URL(string: s) { return u }
+        if let s = info.logoSvg, let u = URL(string: s) { return u }
+        return nil
+    }()
+    let codeInt: Int? = {
+        guard let c = info.code else { return nil }
+        return Int(c)
+    }()
+
+    return CarrierDetails(
+        name: info.title ?? "Перевозчик",
+        logoURL: url,
+        email: info.email,
+        phone: info.phone,
+        code: codeInt
+    )
+}
+
+/// Перегрузка для удобства, если код приходит числом
+func carrierDetails(code: Int) async throws -> CarrierDetails {
+    try await carrierDetails(code: String(code))
+}
 }
 
 // MARK: - Вспомогательные модели под API (минимальные, только нужные поля)
@@ -337,10 +390,10 @@ private extension NetworkClient {
         return lowered.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
-    /// Возвращаем имя ассета с логотипом перевозчика по коду Яндекса.
+    /// Возвращаем имя ассета с логотипом перевозчика по коду Яндекса (Int).
     /// Если ассета нет — возвращаем дефолтную картинку "carrier".
-    func carrierLogoName(from code: String?) -> String {
-        guard let code, let n = Int(code) else { return "carrier" }
+    func carrierLogoName(from code: Int?) -> String {
+        guard let n = code else { return "carrier" }
         switch n {
         // Примеры: заполняй, когда добавишь ассеты в каталоге.
         // case 129: return "tverskoy"   // Тверской Экспресс
@@ -349,4 +402,14 @@ private extension NetworkClient {
             return "carrier"
         }
     }
+}
+
+private struct CarrierDetailsResponse: Decodable {
+    let title: String?
+    let code: String?
+    let url: String?
+    let email: String?
+    let phone: String?
+    let logo: String?
+    let logoSvg: String?
 }

@@ -64,7 +64,7 @@ struct CarrierListView: View {
                                 departure: c.departure,
                                 duration: c.duration,
                                 arrival: c.arrival,
-                                onCarrierTap: { vm.didSelectCarrier(withLogo: c.logo) }
+                                onCarrierTap: { vm.didSelectCarrier(id: c.id) }
                             )
                         }
                     }
@@ -135,23 +135,20 @@ struct CarrierCardView: View {
                         case .empty:
                             ProgressView()
                         case .failure:
-                            Image(systemName: "train.side.front.car")
+                            Image(logo)
                                 .resizable().scaledToFit()
-                                .foregroundStyle(.gray)
                         @unknown default:
-                            Image(systemName: "train.side.front.car")
+                            Image(logo)
                                 .resizable().scaledToFit()
-                                .foregroundStyle(.gray)
                         }
                     }
                     .frame(width: 40, height: 40)
                     .padding(.bottom, 16)
                     .onTapGesture { onCarrierTap() }
                 } else {
-                    Image(systemName: "train.side.front.car")
+                    Image(logo)
                         .resizable().scaledToFit()
                         .frame(width: 40, height: 40)
-                        .foregroundStyle(.gray)
                         .padding(.bottom, 16)
                         .onTapGesture { onCarrierTap() }
                 }
@@ -173,7 +170,8 @@ struct CarrierCardView: View {
 
                 Text(date)
                     .font(.system(size: 12))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                     .padding(.bottom, 25)
             }
 
@@ -200,6 +198,8 @@ struct CarrierCardView: View {
             }
             .foregroundColor(.black)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onCarrierTap() }
         .padding()
         .background(Color.trainsLightGray)
         .cornerRadius(24)

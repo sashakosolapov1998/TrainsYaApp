@@ -11,9 +11,10 @@ import SwiftUI
 struct CarrierDetails: Identifiable, Hashable, Sendable {
     let id = UUID()
     let name: String
-    let logoImageName: String
+    let logoURL: URL?
     let email: String?
     let phone: String?
+    let code: Int?
 }
 
 // MARK: - Views
@@ -22,10 +23,10 @@ struct CarrierDetailView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     
-    @StateObject private var vm: CarrierDetailViewModel
+    @StateObject private var vm: CarrierInfoViewModel
 
-    init(carrier: CarrierDetails) {
-        _vm = StateObject(wrappedValue: CarrierDetailViewModel(initial: carrier))
+    init(carrier: CarrierDetails, code: Int? = nil) {
+        _vm = StateObject(wrappedValue: CarrierInfoViewModel(initial: carrier, code: code))
     }
     
     var body: some View {
@@ -52,14 +53,29 @@ struct CarrierDetailView: View {
                     }
                     .frame(maxWidth: .infinity)
                 } else {
-                    Image(vm.logoImageName)
-                        .resizable()
-                        .scaledToFit()
+                    if let logoURL = vm.logoURL {
+                        AsyncImage(url: logoURL) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                        } placeholder: {
+                            ProgressView()
+                        }
                         .frame(height: 104)
                         .frame(maxWidth: .infinity)
                         .padding(.top)
                         .padding(.horizontal)
                         .accessibilityIdentifier("carrier_logo")
+                    } else {
+                        Image("defaultCarrier")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 104)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("carrier_logo")
+                    }
 
                     Text(vm.name)
                         .font(.system(size: 24, weight: .semibold))
@@ -139,10 +155,10 @@ struct CarrierDetailView: View {
     CarrierDetailView(
         carrier: CarrierDetails(
             name: "ОАО «РЖД»",
-            logoImageName: "rzdInfo",
+            logoURL: nil,
             email: "i.lozgkina@yandex.ru",
-            phone: "+7 (904) 329-27-71"
+            phone: "+7 (904) 329-27-71",
+            code: nil
         )
     )
 }
-
