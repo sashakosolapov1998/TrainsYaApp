@@ -21,7 +21,8 @@ struct CarrierListView: View {
         _vm = StateObject(wrappedValue: CarrierListViewModel(fromText: fromText, toText: toText))
     }
 
-    private var hasActiveFilters: Bool { !vm.currentSelectedTimes.isEmpty || vm.currentShowTransfers != nil }
+    private var hasActiveFilters: Bool {
+        !vm.currentSelectedTimes.isEmpty || vm.currentShowTransfers != nil }
 
     var body: some View {
         VStack(spacing: 0) {

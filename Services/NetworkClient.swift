@@ -162,7 +162,8 @@ actor NetworkClient {
                 return f.string(from: d)
             }
 
-            let result = (rsp.segments ?? []).compactMap { seg in
+            let segments = rsp.segments ?? []
+            let result = segments.map { seg in
                 let dep = seg.departure
                 let arr = seg.arrival
                 let dur = seg.duration ?? 0
@@ -201,11 +202,26 @@ actor NetworkClient {
                     return nil
                 }()
 
+                // extra carrier meta straight from /search
+                let carrierURL: URL? = {
+                    if let s = seg.thread?.carrier?.url, let u = URL(string: s) { return u }
+                    return nil
+                }()
+                let carrierEmail = seg.thread?.carrier?.email
+                let carrierPhone = seg.thread?.carrier?.phone
+                let carrierAddress = seg.thread?.carrier?.address
+                let carrierContacts = seg.thread?.carrier?.contacts
+
                 return Carrier(
                     logo: logoName,
                     logoURL: logoURL,
                     code: codeInt,
                     title: title,
+                    carrierURL: carrierURL,
+                    carrierAddress: carrierAddress,
+                    carrierPhone: carrierPhone,
+                    carrierEmail: carrierEmail,
+                    carrierContacts: carrierContacts,
                     date: dayMonth(dep),
                     transferNote: note,
                     departure: hhmm(dep),
@@ -336,6 +352,12 @@ private struct SearchResponse: Decodable {
         let title: String?
         let logo: String?
         let logoSvg: String?
+        // дополнительные поля, которые иногда приходят в /search
+        let url: String?
+        let email: String?
+        let phone: String?
+        let address: String?
+        let contacts: String?
     }
 }
 

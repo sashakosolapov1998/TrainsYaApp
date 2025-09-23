@@ -15,6 +15,14 @@ struct Carrier: Identifiable, Sendable {
     let logoURL: URL?
     let code: Int?
     let title: String
+    
+    // доп поля из API
+        let carrierURL: URL?
+        let carrierAddress: String?
+        let carrierPhone: String?
+        let carrierEmail: String?
+        let carrierContacts: String?
+    
     let date: String
     let transferNote: String?
     let departure: String
@@ -86,8 +94,8 @@ final class CarrierListViewModel: ObservableObject {
         selectedCarrier = CarrierDetails(
             name: carrier.title,
             logoURL: carrier.logoURL,
-            email: nil,
-            phone: nil,
+            email: carrier.carrierEmail,
+            phone: carrier.carrierPhone,
             code: carrier.code
         )
         selectedCarrierCode = carrier.code
@@ -112,8 +120,8 @@ final class CarrierListViewModel: ObservableObject {
         selectedCarrier = CarrierDetails(
             name: carrier.title,
             logoURL: carrier.logoURL,
-            email: nil,
-            phone: nil,
+            email: carrier.carrierEmail,
+            phone: carrier.carrierPhone,
             code: carrier.code
         )
         // Код перевозчика — чтобы CarrierDetailViewModel мог загрузить реальные данные из API
