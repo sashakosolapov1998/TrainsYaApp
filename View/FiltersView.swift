@@ -11,8 +11,7 @@ import SwiftUI
 struct FiltersView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedTimes: Set<DepartureTime>
-    @State private var showTransfers: Bool?
+    @StateObject private var vm: FiltersViewModel
 
     var onApply: ((Set<DepartureTime>, Bool?) -> Void)?
 
@@ -21,13 +20,11 @@ struct FiltersView: View {
         initialShowTransfers: Bool? = nil,
         onApply: ((Set<DepartureTime>, Bool?) -> Void)? = nil
     ) {
-        _selectedTimes = State(initialValue: initialSelectedTimes)
-        _showTransfers  = State(initialValue: initialShowTransfers)
-        self.onApply    = onApply
-    }
-
-    private var isAnyFilterSelected: Bool {
-        !selectedTimes.isEmpty || showTransfers != nil
+        _vm = StateObject(wrappedValue: FiltersViewModel(
+            selectedTimes: initialSelectedTimes,
+            showTransfers: initialShowTransfers
+        ))
+        self.onApply = onApply
     }
 
     var body: some View {
@@ -51,14 +48,8 @@ struct FiltersView: View {
             ForEach(DepartureTime.allCases, id: \.self) { time in
                 FilterCheckRow(
                     title: time.rawValue,
-                    isSelected: selectedTimes.contains(time),
-                    onToggle: {
-                        if selectedTimes.contains(time) {
-                            selectedTimes.remove(time)
-                        } else {
-                            selectedTimes.insert(time)
-                        }
-                    }
+                    isSelected: vm.selectedTimes.contains(time),
+                    onToggle: { vm.toggleTime(time) }
                 )
             }
 
@@ -69,21 +60,21 @@ struct FiltersView: View {
 
             FilterRadioRow(
                 title: "Да",
-                isOn: showTransfers == true,
-                onSelect: { showTransfers = true }
+                isOn: vm.showTransfers == true,
+                onSelect: { vm.setTransfers(true) }
             )
 
             FilterRadioRow(
                 title: "Нет",
-                isOn: showTransfers == false,
-                onSelect: { showTransfers = false }
+                isOn: vm.showTransfers == false,
+                onSelect: { vm.setTransfers(false) }
             )
 
             Spacer()
 
-            if isAnyFilterSelected {
+            if vm.isAnyFilterSelected {
                 Button(action: {
-                    onApply?(selectedTimes, showTransfers)
+                    onApply?(vm.selectedTimes, vm.showTransfers)
                     dismiss()
                 }) {
                     Text("Применить")
@@ -162,7 +153,7 @@ private struct FilterRadioRow: View {
 }
 
 // MARK: - Models
-enum DepartureTime: String, CaseIterable {
+enum DepartureTime: String, CaseIterable, Sendable {
     case morning = "Утро 06:00 - 12:00"
     case day = "День 12:00 - 18:00"
     case evening = "Вечер 18:00 - 00:00"

@@ -8,7 +8,7 @@
 import SwiftUI
 
 // MARK: - Модель
-struct Story: Identifiable, Hashable {
+struct Story: Identifiable, Hashable, Sendable {
     let id = UUID()
     let imageName: String
     var isViewed: Bool
@@ -46,18 +46,26 @@ struct StoriesViewer: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var stories: [Story]
     @Binding var currentIndex: Int
+    
+    @StateObject private var vm: StoriesViewerViewModel
 
-    @State private var progress: CGFloat = 0
-    @State private var autoAdvanceWork: DispatchWorkItem?
-    private let autoAdvanceDuration: TimeInterval = 3.0
+    init(stories: Binding<[Story]>, currentIndex: Binding<Int>) {
+        _stories = stories
+        _currentIndex = currentIndex
+        _vm = StateObject(wrappedValue: StoriesViewerViewModel(
+            stories: stories.wrappedValue,
+            currentIndex: currentIndex.wrappedValue,
+            stepDuration: 3.0
+        ))
+    }
 
     var body: some View {
         ZStack {
-            TabView(selection: $currentIndex) {
-                ForEach(stories.indices, id: \.self) { i in
+            TabView(selection: $vm.currentIndex) {
+                ForEach(vm.stories.indices, id: \.self) { i in
                     GeometryReader { geo in
                         ZStack(alignment: .bottomLeading) {
-                            Image(stories[i].imageName)
+                            Image(vm.stories[i].imageName)
                                 .resizable()
                                 .scaledToFill()
                                 .frame(width: geo.size.width, height: geo.size.height)
@@ -80,21 +88,22 @@ struct StoriesViewer: View {
 
                             VStack(spacing: 8) {
                                 HStack(spacing: 6) {
-                                    ForEach(stories.indices, id: \.self) { i in
+                                    ForEach(vm.stories.indices, id: \.self) { i in
                                         ZStack(alignment: .leading) {
-                                            Capsule()
-                                                .fill(.white.opacity(0.35))
-
+                                            Capsule().fill(.white.opacity(0.35))
                                             GeometryReader { proxy in
                                                 let w = proxy.size.width
-                                                let fill: CGFloat =
-                                                    i < currentIndex ? w :
-                                                    i > currentIndex ? 0 :
-                                                    w * progress
-                                                
-                                                Capsule()
-                                                    .fill(Color.trainsBlue)
-                                                    .frame(width: fill)
+                                                TimelineView(.animation) { _ in
+                                                    let elapsed: TimeInterval = Date.now.timeIntervalSince(vm.startDate)
+                                                    let pct: CGFloat = CGFloat(min(1, max(0, elapsed / vm.stepDuration)))
+                                                    let fill: CGFloat = (
+                                                        i < vm.currentIndex ? w :
+                                                        (i > vm.currentIndex ? .zero : w * pct)
+                                                    )
+                                                    Capsule()
+                                                        .fill(Color.trainsBlue)
+                                                        .frame(width: fill)
+                                                }
                                             }
                                         }
                                         .frame(height: 4)
@@ -123,11 +132,11 @@ struct StoriesViewer: View {
                             HStack(spacing: 0) {
                                 Color.clear
                                     .contentShape(Rectangle())
-                                    .onTapGesture { goPrev() }
+                                    .onTapGesture { vm.prev() }
 
                                 Color.clear
                                     .contentShape(Rectangle())
-                                    .onTapGesture { goNext() }
+                                    .onTapGesture { vm.next() }
                             }
                             .ignoresSafeArea()
                         }
@@ -137,8 +146,7 @@ struct StoriesViewer: View {
                     .containerRelativeFrame(.horizontal)
                     .tag(i)
                     .onAppear {
-                        if !stories[i].isViewed { stories[i].isViewed = true }
-                        startProgress()
+                        vm.restart()
                     }
                 }
             }
@@ -147,45 +155,18 @@ struct StoriesViewer: View {
             .ignoresSafeArea(.container, edges: .horizontal)
             .background(Color.black)
         }
-        .onChange(of: currentIndex) { _ in restartProgress() }
-        .onDisappear { autoAdvanceWork?.cancel() }
-    }
-
-// MARK: - Прогресс
-    private func startProgress() {
-        autoAdvanceWork?.cancel()
-        progress = 0
-        withAnimation(.linear(duration: autoAdvanceDuration)) {
-            progress = 1
+        .onChange(of: vm.currentIndex) { newValue in
+            currentIndex = newValue
         }
-        let work = DispatchWorkItem {
-            if currentIndex < stories.count - 1 {
-                currentIndex += 1
-            } else {
-                dismiss()
-            }
+        .onChange(of: currentIndex) { newValue in
+            vm.currentIndex = newValue
+            vm.restart()
         }
-        autoAdvanceWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + autoAdvanceDuration, execute: work)
-    }
-
-    private func restartProgress() {
-        autoAdvanceWork?.cancel()
-        autoAdvanceWork = nil
-        progress = 0
-        DispatchQueue.main.async { startProgress() }
-    }
-
-    private func goNext() {
-        autoAdvanceWork?.cancel()
-        guard currentIndex < stories.count - 1 else { return }
-        currentIndex += 1
-    }
-
-    private func goPrev() {
-        autoAdvanceWork?.cancel()
-        guard currentIndex > 0 else { return }
-        currentIndex -= 1
+        .onChange(of: vm.stories) { newValue in
+            stories = newValue
+        }
+        .onAppear { vm.start() }
+        .onDisappear { vm.stop() }
     }
 }
 

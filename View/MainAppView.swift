@@ -23,6 +23,7 @@ struct MainAppView: View {
                         .accessibilityLabel("Расписание")
                 }
             
+            
             SettingsView()
                 .tabItem {
                     Image("tabGear")

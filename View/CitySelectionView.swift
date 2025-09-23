@@ -12,22 +12,35 @@ struct CitySelectionView: View {
     let onSelect: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var searchText: String = ""
-
-    private static let cities = [
-        "Москва", "Санкт Петербург", "Сочи", "Горный воздух",
-        "Краснодар", "Казань", "Омск"
-    ]
-
-    private var filteredCities: [String] {
-        searchText.isEmpty ? Self.cities : Self.cities.filter {
-            $0.localizedCaseInsensitiveContains(searchText)
-        }
-    }
+    @StateObject private var vm = CitySelectionViewModel()
 
     var body: some View {
         List {
-            if filteredCities.isEmpty {
+            if vm.isLoading {
+                VStack(spacing: 16) {
+                    Spacer().frame(height: 160)
+                    ProgressView()
+                    Text("Загрузка...")
+                        .foregroundColor(.trainsBlack)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } else if let message = vm.errorMessage {
+                VStack(spacing: 12) {
+                    Spacer().frame(height: 160)
+                    Text(message)
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundColor(.trainsBlack)
+                    Button("Повторить") {
+                        vm.setSearchText(vm.searchText)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } else if vm.cities.isEmpty {
                 VStack(spacing: 0) {
                     Spacer().frame(height: 176)
                     Text("Город не найден")
@@ -38,12 +51,13 @@ struct CitySelectionView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             } else {
-                ForEach(filteredCities, id: \.self) { city in
+                ForEach(vm.cities) { city in
                     Button {
-                        onSelect(city)
+                        onSelect(city.name)
+                        dismiss()
                     } label: {
                         HStack {
-                            Text(city)
+                            Text(city.name)
                                 .foregroundColor(.trainsBlack)
                                 .padding(.vertical, 10)
                             Spacer()
@@ -60,16 +74,21 @@ struct CitySelectionView: View {
         .background(Color.clear)
         .scrollContentBackground(.hidden)
         .searchable(
-            text: $searchText,
+            text: Binding(
+                get: { vm.searchText },
+                set: { vm.setSearchText($0) }
+            ),
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Введите запрос"
         )
+        .task {
+          
+            vm.onAppear()
+        }
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    dismiss()
-                }) {
+                Button(action: { dismiss() }) {
                     Image(systemName: "chevron.left")
                         .foregroundColor(.trainsBlack)
                 }

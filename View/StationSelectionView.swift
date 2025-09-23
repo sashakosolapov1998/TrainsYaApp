@@ -12,30 +12,41 @@ struct StationSelectionView: View {
     let onSelect: (String) -> Void
     
     @Environment(\.dismiss) private var dismiss
-    @State private var searchText: String = ""
+    @StateObject private var vm: StationSelectionViewModel
     
-    private static let stationsByCity: [String: [String]] = [
-        "Москва": ["Киевский вокзал", "Курский вокзал", "Ярославский вокзал", "Белорусский вокзал", "Савеловский вокзал", "Ленинградский вокзал"],
-        "Санкт Петербург": ["Ладожский", "Московский"],
-        "Казань": ["Казань-Пассажирская", "Казань-2"],
-        "Сочи": ["Сочи-Пассажирский"],
-        "Горный воздух": ["Центральная"],
-        "Краснодар": ["Краснодар-1", "Краснодар-2"],
-        "Омск": ["Омск-Пассажирский"]
-    ]
-    
-    private var stations: [String] {
-        Self.stationsByCity[city] ?? []
-    }
-    
-    private var filteredStations: [String] {
-        return searchText.isEmpty ? stations : stations.filter { $0.localizedCaseInsensitiveContains(searchText)
-        }
+    init(city: String, onSelect: @escaping (String) -> Void) {
+        self.city = city
+        self.onSelect = onSelect
+        _vm = StateObject(wrappedValue: StationSelectionViewModel(city: city))
     }
     
     var body: some View {
         List {
-            if filteredStations.isEmpty {
+            if vm.isLoading {
+                VStack(spacing: 16) {
+                    Spacer().frame(height: 100)
+                    ProgressView()
+                    Text("Загрузка...")
+                        .foregroundColor(.trainsBlack)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } else if let message = vm.errorMessage {
+                VStack(spacing: 12) {
+                    Spacer().frame(height: 100)
+                    Text(message)
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundColor(.trainsBlack)
+                    Button("Повторить") {
+                        vm.setSearchText(vm.searchText)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            } else if vm.stations.isEmpty {
                 VStack(spacing: 0) {
                     Spacer().frame(height: 100)
                     Text("Станция не найдена")
@@ -46,9 +57,10 @@ struct StationSelectionView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             } else {
-                ForEach(filteredStations, id: \.self) { station in
+                ForEach(vm.stations, id: \.self) { station in
                     Button {
                         onSelect(station)
+                        dismiss()
                     } label: {
                         HStack {
                             Text(station)
@@ -61,40 +73,29 @@ struct StationSelectionView: View {
                         }
                     }
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(Color(.systemBackground))
                 }
             }
         }
         .listStyle(.plain)
-        .background(Color.clear)
-        .scrollContentBackground(.hidden)
         .searchable(
-            text: $searchText,
+            text: Binding(
+                get: { vm.searchText },
+                set: { vm.setSearchText($0) }
+            ),
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: "Введите станцию"
         )
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.trainsBlack)
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Text("Выбор станции")
-                    .font(.headline)
-                    .foregroundColor(.trainsBlack)
-            }
+        .task {
+            vm.onAppear()
         }
+        .navigationTitle("Выбор станции")
     }
-}
-
-// MARK: - Preview
-#Preview {
-    StationSelectionView(city: "Москва") { selectedStation in
-        print("Selected station: \(selectedStation)")
+    
+    
+    // MARK: - Preview
+    #Preview {
+        StationSelectionView(city: "Москва") { selectedStation in
+        }
     }
 }

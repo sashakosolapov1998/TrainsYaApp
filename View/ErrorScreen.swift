@@ -7,11 +7,7 @@
 
 import SwiftUI
 
-// MARK: - Models
-enum AppErrorType: Equatable {
-    case noInternet
-    case serverError
-}
+
 
 // MARK: - Views
 struct ErrorScreen: View {
@@ -26,10 +22,12 @@ struct ErrorScreen: View {
                 .scaledToFit()
                 .frame(width: 223, height: 223)
                 .clipShape(RoundedRectangle(cornerRadius: 40))
+                .accessibilityIdentifier("error_image")
 
             Text(title)
                 .font(.system(size: 24, weight: .bold))
                 .padding(.top, 12)
+                .accessibilityIdentifier("error_title")
 
             Spacer()
         }
@@ -38,8 +36,8 @@ struct ErrorScreen: View {
 
     private var imageName: String {
         switch type {
-        case .noInternet: return "No internet"
-        case .serverError: return "server error"
+        case .noInternet: return "noInternet"
+        case .serverError: return "serverError"
         }
     }
 
@@ -54,5 +52,5 @@ struct ErrorScreen: View {
 
 // MARK: - Preview
 #Preview {
-    ErrorScreen(type: .serverError)
+    ErrorScreen(type: AppErrorType.serverError)
 }

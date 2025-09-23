@@ -9,19 +9,26 @@ import SwiftUI
 
 // MARK: - Views
 struct SettingsView: View {
-    @AppStorage("isDarkMode") private var isDarkMode: Bool = false
-    @State private var showAgreement = false
+    @StateObject private var vm = SettingsViewModel()
+    @State private var path: [SettingsRoute] = []
 
+    
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 List {
                     Section {
-                        Toggle("Тёмная тема", isOn: $isDarkMode)
-                            .tint(Color.trainsBlue)
-                            .listRowBackground(Color.clear)
-                            .padding(.vertical)
-                            .listRowSeparator(.hidden)
+                        Toggle(
+                            "Тёмная тема",
+                            isOn: Binding(
+                                get: { vm.isDarkMode },
+                                set: { vm.toggleDarkMode($0) }
+                            )
+                        )
+                        .tint(Color.trainsBlue)
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical)
+                        .listRowSeparator(.hidden)
                     }
 
                     Section {
@@ -35,7 +42,7 @@ struct SettingsView: View {
                                 .font(.system(size: 24, weight: .medium))
                         }
                         .contentShape(Rectangle())
-                        .onTapGesture { showAgreement = true }
+                        .onTapGesture { vm.openAgreement() }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     }
@@ -60,12 +67,21 @@ struct SettingsView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .navigationDestination(isPresented: $showAgreement) {
-                UserAgreementView()
-                    .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: SettingsRoute.self) { route in
+                switch route {
+                case .userAgreement:
+                    UserAgreementView()
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+            .onChange(of: vm.route) { route in
+                if let route {
+                    path.append(route)
+                    vm.closeRoute()
+                }
             }
         }
-        .preferredColorScheme(isDarkMode ? .dark : .light)
+        .preferredColorScheme(vm.isDarkMode ? .dark : .light)
     }
 }
 
