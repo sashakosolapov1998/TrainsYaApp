@@ -33,7 +33,6 @@ struct CitySelectionView: View {
                         .font(.system(size: 17, weight: .regular))
                         .foregroundColor(.trainsBlack)
                     Button("Повторить") {
-                        // повторный запрос с текущим текстом
                         vm.setSearchText(vm.searchText)
                     }
                     .buttonStyle(.bordered)
@@ -54,7 +53,6 @@ struct CitySelectionView: View {
             } else {
                 ForEach(vm.cities) { city in
                     Button {
-                        print("🧭 [CitySelectionView] choose city =", city.name)
                         onSelect(city.name)
                         dismiss()
                     } label: {
@@ -84,7 +82,7 @@ struct CitySelectionView: View {
             prompt: "Введите запрос"
         )
         .task {
-            print("👀 [CitySelectionView] appeared")
+          
             vm.onAppear()
         }
         .navigationBarBackButtonHidden(true)

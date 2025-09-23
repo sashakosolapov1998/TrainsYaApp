@@ -96,7 +96,6 @@ struct StationSelectionView: View {
     // MARK: - Preview
     #Preview {
         StationSelectionView(city: "Москва") { selectedStation in
-            print("Selected station: \(selectedStation)")
         }
     }
 }

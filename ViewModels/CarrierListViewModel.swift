@@ -81,16 +81,14 @@ final class CarrierListViewModel: ObservableObject {
         }
     }
 
-    /// Предпочтительный способ выбора: по уникальному `id` конкретной карточки
+
     func didSelectCarrier(id: UUID) {
-        // Ищем ровно тот элемент, на который тапнули
         guard let carrier = filteredCarriers.first(where: { $0.id == id }) else {
-            print("⚠️ didSelectCarrier(id:) — не нашли carrier по id \(id)")
             selectedCarrier = CarrierDetails(name: "Перевозчик", logoURL: nil, email: nil, phone: nil, code: nil)
             selectedCarrierCode = nil
             return
         }
-        print("✅ Selected by id: \(carrier.title), code: \(String(describing: carrier.code))")
+    
         selectedCarrier = CarrierDetails(
             name: carrier.title,
             logoURL: carrier.logoURL,
@@ -102,21 +100,17 @@ final class CarrierListViewModel: ObservableObject {
     }
 
     func didSelectCarrier(withLogo logo: String) {
-        // ⚠️ УСТАРЕВШЕ: выбор по `logo` неоднозначен (несколько разных перевозчиков могут иметь один логотип).
-        // Лучше использовать didSelectCarrier(id:), пробрасывая `carrier.id` из вью.
-        print("⚠️ didSelectCarrier(withLogo:) используется — выбор может быть неверным. logo='\(logo)'")
+      
         for carrier in filteredCarriers {
-            print("• card: title=\(carrier.title), code=\(String(describing: carrier.code)), logo=\(carrier.logo)")
         }
-        // Находим выбранный элемент в текущей выборке (по совпадению logo и title)
+      
         guard let carrier = filteredCarriers.first(where: { $0.logo == logo || $0.title == logo }) else {
-            // fallback — покажем заглушку
+            
             selectedCarrier = CarrierDetails(name: "Перевозчик", logoURL: nil, email: nil, phone: nil, code: nil)
             selectedCarrierCode = nil
             return
         }
-        print("Selected carrier: \(carrier.title), code: \(String(describing: carrier.code))")
-        // Начальные данные для экрана (UI может сразу показать имя)
+
         selectedCarrier = CarrierDetails(
             name: carrier.title,
             logoURL: carrier.logoURL,
@@ -124,7 +118,7 @@ final class CarrierListViewModel: ObservableObject {
             phone: carrier.carrierPhone,
             code: carrier.code
         )
-        // Код перевозчика — чтобы CarrierDetailViewModel мог загрузить реальные данные из API
+    
         selectedCarrierCode = carrier.code
     }
 

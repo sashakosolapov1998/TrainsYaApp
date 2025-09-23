@@ -212,7 +212,6 @@ struct CarrierCardView: View {
         case "fgk": return "ФГК"
         case "ural", "uralLogistics": return "Урал логистика"
         default:
-            // Если пришло название из API (например, "Тверской Экспресс") — показываем его как есть
             return imageName
         }
     }

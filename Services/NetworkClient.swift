@@ -7,27 +7,51 @@
 
 import Foundation
 
-/// Единый сетевой клиент приложения. Работает через URLSession.
-/// Сигнатуры методов сохранены, чтобы не менять ViewModel.
 actor NetworkClient {
     // MARK: - Singleton для простоты DI
     static let shared = NetworkClient()
 
     // MARK: - Конфигурация
+    // --- DateFormatters ---
+    private static let apiDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.calendar = .init(identifier: .gregorian)
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.timeZone = .current
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
+    private static let dayMonthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ru_RU")
+        f.timeZone = .current
+        f.dateFormat = "d MMMM"
+        return f
+    }()
+
+    private static let isoDateFormatter = ISO8601DateFormatter()
     private let apiKey: String = Constants.apiKey
     private let baseURL = URL(string: "https://api.rasp.yandex.net/v3.0")!
     private let session: URLSession
     private let decoder: JSONDecoder
 
-    // Кэш большого справочника станций, чтобы не грузить каждый раз
+
     private var stationsCatalogCache: StationsListResponse? = nil
-    // Быстрый индекс: нормализованное имя станции → код станции
+
     private var stationIndexByTitle: [String: String] = [:]
 
     init(session: URLSession = .shared) {
         self.session = session
         let dec = JSONDecoder()
-        // У Яндекса snake_case ключи → конвертируем в camelCase автоматически
         dec.keyDecodingStrategy = .convertFromSnakeCase
         self.decoder = dec
     }
@@ -94,7 +118,6 @@ actor NetworkClient {
                 let key = normalize(String(stationName))
                 if let code = stationIndexByTitle[key] { return code }
             }
-            // Если строка пришла без скобок — возможно это уже чистое имя станции
             let directKey = normalize(composed)
             if let code = stationIndexByTitle[directKey] { return code }
             return nil
@@ -102,22 +125,13 @@ actor NetworkClient {
 
         let fromCode = stationCode(from: from)
         let toCode   = stationCode(from: to)
-        print("🔎 [Search] input from=\(from), to=\(to)")
-        print("🔎 [Search] resolved codes from=\(fromCode ?? "nil"), to=\(toCode ?? "nil")")
+      
         guard let fromCode, let toCode else {
-            print("⛔️ [Search] one or both station codes not found — aborting request")
             return []
         }
 
-        // сегодняшняя дата (UTC) в формате API
-        let df = DateFormatter()
-        df.calendar = .init(identifier: .gregorian)
-        df.locale   = Locale(identifier: "en_US_POSIX")
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        let today = df.string(from: Date())
+        let today = Self.apiDateFormatter.string(from: Date())
 
-        // Собираем запрос /search
         var comps = URLComponents(url: baseURL.appendingPathComponent("search/"), resolvingAgainstBaseURL: false)!
         comps.queryItems = [
             .init(name: "apikey", value: apiKey),
@@ -132,34 +146,22 @@ actor NetworkClient {
         if let url = comps.url { print("🌐 [Search] URL =", url.absoluteString) }
         let (data, response) = try await session.data(from: comps.url!)
         if let http = response as? HTTPURLResponse {
-            print("🛣️ [Search] status =", http.statusCode)
         }
         try ensureOK(response)
 
         do {
             let rsp = try decoder.decode(SearchResponse.self, from: data)
             let count = rsp.segments?.count ?? 0
-            print("📦 [Search] segments count =", count)
             if count == 0, let s = String(data: data, encoding: .utf8) {
-                print("🧪 [Search] raw body (truncated):", s.prefix(800))
             }
 
-            let iso = ISO8601DateFormatter()
             func hhmm(_ s: String?) -> String {
-                guard let s, let d = iso.date(from: s) else { return "--:--" }
-                let f = DateFormatter()
-                f.locale = Locale(identifier: "ru_RU")
-                f.timeZone = .current
-                f.dateFormat = "HH:mm"
-                return f.string(from: d)
+                guard let s, let d = Self.isoDateFormatter.date(from: s) else { return "--:--" }
+                return Self.timeFormatter.string(from: d)
             }
             func dayMonth(_ s: String?) -> String {
-                guard let s, let d = iso.date(from: s) else { return "" }
-                let f = DateFormatter()
-                f.locale = Locale(identifier: "ru_RU")
-                f.timeZone = .current
-                f.dateFormat = "d MMMM"
-                return f.string(from: d)
+                guard let s, let d = Self.isoDateFormatter.date(from: s) else { return "" }
+                return Self.dayMonthFormatter.string(from: d)
             }
 
             let segments = rsp.segments ?? []
@@ -171,7 +173,7 @@ actor NetworkClient {
                 let mins  = max(0, (dur % 3600) / 60)
 
                 let depHour: Int = {
-                    guard let s = dep, let d = iso.date(from: s) else { return 0 }
+                    guard let s = dep, let d = Self.isoDateFormatter.date(from: s) else { return 0 }
                     return Calendar.current.component(.hour, from: d)
                 }()
                 let category: DepartureTime = {
@@ -183,7 +185,7 @@ actor NetworkClient {
                     }
                 }()
 
-                // carrier code may come as string or int
+             
                 let codeInt: Int? = {
                     guard let c = seg.thread?.carrier?.code else { return nil }
                     switch c {
@@ -202,7 +204,6 @@ actor NetworkClient {
                     return nil
                 }()
 
-                // extra carrier meta straight from /search
                 let carrierURL: URL? = {
                     if let s = seg.thread?.carrier?.url, let u = URL(string: s) { return u }
                     return nil
@@ -233,17 +234,13 @@ actor NetworkClient {
             return result
         } catch {
             if let s = String(data: data, encoding: .utf8) {
-                print("💥 [Search] decode error =", error, "\n🔸 raw body:", s.prefix(1200))
             } else {
-                print("💥 [Search] decode error =", error, " (body not UTF-8)")
             }
             throw error
         }
     }
 
 // MARK: - Детали перевозчика
-/// Вариант для обратной совместимости: по имени пока возвращаем stub.
-/// Рекомендуется вызывать `carrierDetails(code:)`, чтобы тянуть данные из API.
 func carrierDetails(for name: String) async throws -> CarrierDetails {
     return CarrierDetails(
         name: name,
@@ -254,7 +251,6 @@ func carrierDetails(for name: String) async throws -> CarrierDetails {
     )
 }
 
-/// Реальные детали перевозчика по коду из API Яндекса.
 func carrierDetails(code: String) async throws -> CarrierDetails {
     var comps = URLComponents(url: baseURL.appendingPathComponent("carrier/"), resolvingAgainstBaseURL: false)!
     comps.queryItems = [
@@ -285,7 +281,6 @@ func carrierDetails(code: String) async throws -> CarrierDetails {
     )
 }
 
-/// Перегрузка для удобства, если код приходит числом
 func carrierDetails(code: Int) async throws -> CarrierDetails {
     try await carrierDetails(code: String(code))
 }
@@ -305,7 +300,7 @@ private struct StationsListResponse: Decodable {
         let codes: Codes?
     }
     struct Codes: Decodable {
-        let yandexCode: String?   // convertFromSnakeCase позволит распознать yandex_code
+        let yandexCode: String?
         let yandex: String?
         let esr: String?
     }
@@ -347,12 +342,12 @@ private struct SearchResponse: Decodable {
         let number: String?
     }
     struct CarrierInfo: Decodable {
-        // бывает code как строка или как число, поэтому оставим строку
+      
         let code: StringOrInt?
         let title: String?
         let logo: String?
         let logoSvg: String?
-        // дополнительные поля, которые иногда приходят в /search
+       
         let url: String?
         let email: String?
         let phone: String?
@@ -376,12 +371,12 @@ private extension NetworkClient {
         comps.queryItems = [
             .init(name: "apikey", value: apiKey),
             .init(name: "lang", value: "ru_RU")
-            // Можно добавить transport_types=train если нужно фильтровать
+          
         ]
         let (data, response) = try await session.data(from: comps.url!)
         try ensureOK(response)
         let parsed = try decoder.decode(StationsListResponse.self, from: data)
-        // Построим индекс станций: по нормализованному названию найдём код
+     
         var idx: [String: String] = [:]
         for country in parsed.countries ?? [] {
             for region in country.regions ?? [] {
@@ -402,7 +397,6 @@ private extension NetworkClient {
         return parsed
     }
 
-    /// Нормализация русских названий (регистр/диакритика/дефисы/пробелы/ё)
     func normalize(_ s: String) -> String {
         let lowered = s
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "ru_RU"))
@@ -412,14 +406,10 @@ private extension NetworkClient {
         return lowered.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
-    /// Возвращаем имя ассета с логотипом перевозчика по коду Яндекса (Int).
-    /// Если ассета нет — возвращаем дефолтную картинку "carrier".
     func carrierLogoName(from code: Int?) -> String {
         guard let n = code else { return "carrier" }
         switch n {
-        // Примеры: заполняй, когда добавишь ассеты в каталоге.
-        // case 129: return "tverskoy"   // Тверской Экспресс
-        // case 2:   return "rzd"        // РЖД
+       
         default:
             return "carrier"
         }

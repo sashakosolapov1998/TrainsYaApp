@@ -51,7 +51,7 @@ final class HomeViewModel: ObservableObject {
 
     func selectFromCity(_ city: String) {
         selectedFromCity = city
-        // Отложим навигацию на следующий runloop, чтобы избежать "Update NavigationRequestObserver..."
+     
         DispatchQueue.main.async { [weak self] in
             self?.route = .selectFromStation(city: city)
         }
@@ -64,7 +64,7 @@ final class HomeViewModel: ObservableObject {
 
     func selectToCity(_ city: String) {
         selectedToCity = city
-        // Отложим навигацию на следующий runloop, чтобы избежать "Update NavigationRequestObserver..."
+       
         DispatchQueue.main.async { [weak self] in
             self?.route = .selectToStation(city: city)
         }

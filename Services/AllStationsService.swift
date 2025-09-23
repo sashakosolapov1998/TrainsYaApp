@@ -31,9 +31,7 @@ final class AllStationsService: AllStationsProtocol {
             let allStations = try JSONDecoder().decode(AllStations.self, from: fullData)
             return allStations
         } catch {
-            print("Ошибка декодирования JSON: \(error)")
             if let jsonString = String(data: fullData, encoding: .utf8) {
-                print("Содержимое ответа:\n\(jsonString.prefix(500))...")
             }
             throw error
         }
